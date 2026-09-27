@@ -13,7 +13,11 @@
     label { font-size: 14px; font-weight: 600; color: #555; display: block; margin-bottom: 6px; }
     input[type="text"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; outline: none; }
     .camera-box { width: 100%; height: 240px; background: #222; border-radius: 12px; overflow: hidden; position: relative; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; }
-    video, canvas { width: 100%; height: 100%; object-fit: cover; }
+    
+    /* Efek Mirror untuk Kamera Depan (Tampilan Cermin Alami) */
+    video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    canvas { width: 100%; height: 100%; object-fit: cover; }
+    
     button { width: 100%; background: #4F46E5; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s; }
     button:active { background: #4338CA; }
     button:disabled { background: #A5B4FC; cursor: not-allowed; }
@@ -86,6 +90,10 @@
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
+      
+      // Balikkan koordinat canvas agar hasil foto sesuai dengan tampilan cermin di layar
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       
       // Konversi ke Base64 PNG
@@ -107,7 +115,7 @@
           })
         });
 
-        updateStatus('BERHASIL ABSEN!\nData & Foto PNG telah dicatat ke Google Sheet.', false, true);
+        updateStatus('Hore, berhasil absen!!\nMakasih ya, dah ikut ekskul hari ini. Peace!! ✌', false, true);
       } catch (err) {
         updateStatus('Gagal mengirim data: ' + err.message, true);
       } finally {
