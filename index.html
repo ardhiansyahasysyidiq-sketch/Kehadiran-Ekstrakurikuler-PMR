@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Absensi Anti-Curang</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f4f6f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 15px; }
+    .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); width: 100%; max-width: 420px; text-align: center; }
+    h2 { color: #333; margin-bottom: 20px; font-size: 22px; }
+    .input-group { text-align: left; margin-bottom: 15px; }
+    label { font-size: 14px; font-weight: 600; color: #555; display: block; margin-bottom: 6px; }
+    input[type="text"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; outline: none; }
+    .camera-box { width: 100%; height: 240px; background: #222; border-radius: 12px; overflow: hidden; position: relative; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; }
+    video, canvas { width: 100%; height: 100%; object-fit: cover; }
+    button { width: 100%; background: #4F46E5; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    button:active { background: #4338CA; }
+    button:disabled { background: #A5B4FC; cursor: not-allowed; }
+    #status { margin-top: 15px; font-size: 14px; color: #666; font-weight: 500; line-height: 1.4; }
+    .error { color: #DC2626 !important; }
+    .success { color: #16A34A !important; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Absensi Anti-Curang</h2>
+  
+  <div class="input-group">
+    <label for="username">Nama / ID Pengguna</label>
+    <input type="text" id="username" placeholder="Masukkan nama kamu...">
+  </div>
+
+  <div class="camera-box">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+  </div>
+
+  <button id="btnAbsen" onclick="prosesAbsensi()">KIRIM ABSENSI</button>
+  <div id="status">Menginisialisasi kamera & lokasi...</div>
+</div>
+
+<script>
+  // URL Web App Google Apps Script milikmu
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHaqldRMQHCY8iThFxkaAmKup_BQdBkc4T_18AsTFFWBpURkFJCrJ6n2Q1oK0QHKfj/exec';
+
+  // Titik Target & Radius Toleransi (50 meter)
+  const TARGET_LAT = -7.4243;
+  const TARGET_LONG = 109.2301;
+  const MAX_RADIUS = 50.0; 
+
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const status = document.getElementById('status');
+  const btn = document.getElementById('btnAbsen');
+
+  // Akses Kamera Depan HP / Laptop
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+    .then(stream => { video.srcObject = stream; status.innerText = 'Kamera & lokasi siap.'; })
+    .catch(err => { updateStatus('Gagal mengakses kamera: ' + err.message, true); });
+
+  // Hitung Jarak Koordinat (Haversine Formula)
+  function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371e3;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  function updateStatus(msg, isError = false, isSuccess = false) {
+    status.innerText = msg;
+    status.className = isError ? 'error' : (isSuccess ? 'success' : '');
+  }
+
+  async function prosesAbsensi() {
+    const username = document.getElementById('username').value.trim();
+    if (!username) { alert('Isi Nama / ID dulu!'); return; }
+
+    btn.disabled = true;
+    updateStatus('Memeriksa lokasi GPS...');
+
+    if (!navigator.geolocation) {
+      updateStatus('Browser kamu tidak mendukung Geolocation.', true);
+      btn.disabled = false;
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const distance = getDistance(lat, lng, TARGET_LAT, TARGET_LONG);
+
+      // Validasi Radius
+      if (distance > MAX_RADIUS) {
+        updateStatus(`Posisi terlalu jauh (${distance.toFixed(1)}m). Maksimal ${MAX_RADIUS}m dari lokasi absensi.`, true);
+        btn.disabled = false;
+        return;
+      }
+
+      updateStatus('Merekam foto...');
+      
+      // Ambil Foto dari Video Element
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Konversi ke Base64 PNG (Tanpa prefix data:image/png;base64,)
+      const base64Image = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, "");
+
+      updateStatus('Mengirim data ke Google Sheet...');
+
+      try {
+        await fetch(SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors', // Penting agar cross-origin request dari web aman
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: username,
+            latitude: lat,
+            longitude: lng,
+            gpsStatus: 'VALID (Web GPS)',
+            imageBase64: base64Image
+          })
+        });
+
+        updateStatus('BERHASIL ABSEN!\nData & Foto PNG telah dicatat ke Google Sheet.', false, true);
+      } catch (err) {
+        updateStatus('Gagal mengirim data: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+
+    }, (err) => {
+      updateStatus('Gagal mendapatkan lokasi GPS: ' + err.message, true);
+      btn.disabled = false;
+    }, { enableHighAccuracy: true });
+  }
+</script>
+
+</body>
+</html>
