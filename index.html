@@ -58,8 +58,10 @@
   // URL Web App Google Apps Script
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHaqldRMQHCY8iThFxkaAmKup_BQdBkc4T_18AsTFFWBpURkFJCrJ6n2Q1oK0QHKfj/exec';
 
-  // SEMENTARA TEST: Mode Bebas Lokasi
-  const IS_TESTING_MODE = true; 
+  // Titik Akurat SMAN 1 Purwokerto & Radius 50 Meter
+  const TARGET_LAT = -7.421071982529054;
+  const TARGET_LONG = 109.23719169959715;
+  const MAX_RADIUS = 50.0; 
 
   const video = document.getElementById('video');
   const canvas = document.getElementById('canvas');
@@ -70,6 +72,18 @@
   navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
     .then(stream => { video.srcObject = stream; status.innerText = 'Kamera & lokasi siap.'; })
     .catch(err => { updateStatus('Gagal mengakses kamera: ' + err.message, true); });
+
+  // Hitung Jarak Koordinat (Formula Haversine)
+  function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371e3; // Radius bumi dalam meter
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
 
   function updateStatus(msg, isError = false, isSuccess = false) {
     status.innerText = msg;
@@ -95,6 +109,16 @@
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
+
+      // Hitung Jarak dari SMAN 1 Purwokerto
+      const distance = getDistance(lat, lng, TARGET_LAT, TARGET_LONG);
+
+      // Cek apakah di luar radius 50m SMAN 1 Purwokerto
+      if (distance > MAX_RADIUS) {
+        updateStatus(`Posisi kamu di luar SMA N 1 Purwokerto (${distance.toFixed(1)}m). Maksimal ${MAX_RADIUS}m dari lokasi ekskul.`, true);
+        btn.disabled = false;
+        return;
+      }
 
       updateStatus('Sabar yaa, lagi loadingg 🦇');
       
@@ -123,7 +147,7 @@
             kelas: userclass,
             latitude: lat,
             longitude: lng,
-            gpsStatus: IS_TESTING_MODE ? 'TESTING (Bebas Lokasi)' : 'VALID (Web GPS)',
+            gpsStatus: 'VALID (SMAN 1 Purwokerto)',
             imageBase64: base64Image
           })
         });
