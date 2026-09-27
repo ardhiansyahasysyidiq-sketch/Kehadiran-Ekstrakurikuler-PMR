@@ -113,16 +113,14 @@
 
       updateStatus('Sabar yaa, lagi loadingg 🦇');
 
-      // Menggabungkan Nama dan Kelas (Contoh: "ARDHIANSYAH - X-1")
-      const fullIdentity = `${username} (${userclass})`;
-
       try {
         await fetch(SCRIPT_URL, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            userId: fullIdentity,
+            nama: username,
+            kelas: userclass,
             latitude: lat,
             longitude: lng,
             gpsStatus: IS_TESTING_MODE ? 'TESTING (Bebas Lokasi)' : 'VALID (Web GPS)',
