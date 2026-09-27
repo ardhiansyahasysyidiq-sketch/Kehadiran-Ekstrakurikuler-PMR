@@ -12,9 +12,13 @@
     .input-group { text-align: left; margin-bottom: 15px; }
     label { font-size: 14px; font-weight: 600; color: #555; display: block; margin-bottom: 6px; }
     input[type="text"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; outline: none; }
+    
+    /* Otomatis teks nama jadi kapital semua */
+    #username { text-transform: uppercase; }
+
     .camera-box { width: 100%; height: 240px; background: #222; border-radius: 12px; overflow: hidden; position: relative; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; }
     
-    /* Efek Mirror untuk Kamera Depan (Tampilan Cermin Alami) */
+    /* Efek Mirror Kamera Depan Natural */
     video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
     canvas { width: 100%; height: 100%; object-fit: cover; }
     
@@ -32,8 +36,13 @@
   <h2>Kehadiran Ekstrakurikuler PMR</h2>
   
   <div class="input-group">
-    <label for="username">Nama / ID Pengguna</label>
-    <input type="text" id="username" placeholder="Masukkan nama kamu...">
+    <label for="username">Nama</label>
+    <input type="text" id="username" placeholder="Nama (Kapital semua yaw)">
+  </div>
+
+  <div class="input-group">
+    <label for="userclass">Kelas</label>
+    <input type="text" id="userclass" placeholder="Kelas (Contoh = X-1)">
   </div>
 
   <div class="camera-box">
@@ -42,7 +51,7 @@
   </div>
 
   <button id="btnAbsen" onclick="prosesAbsensi()">KIRIM ABSENSI</button>
-  <div id="status">Menginisialisasi kamera & lokasi...</div>
+  <div id="status">Sabar yaa, lagi loadingg 🦇</div>
 </div>
 
 <script>
@@ -68,11 +77,14 @@
   }
 
   async function prosesAbsensi() {
-    const username = document.getElementById('username').value.trim();
-    if (!username) { alert('Isi Nama / ID dulu!'); return; }
+    const username = document.getElementById('username').value.trim().toUpperCase();
+    const userclass = document.getElementById('userclass').value.trim();
+
+    if (!username) { alert('Isi Nama dulu!'); return; }
+    if (!userclass) { alert('Isi Kelas dulu!'); return; }
 
     btn.disabled = true;
-    updateStatus('Mendapatkan koordinat GPS...');
+    updateStatus('Sabar yaa, lagi loadingg 🦇');
 
     if (!navigator.geolocation) {
       updateStatus('Browser kamu tidak mendukung Geolocation.', true);
@@ -84,14 +96,14 @@
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
 
-      updateStatus('Merekam foto...');
+      updateStatus('Sabar yaa, lagi loadingg 🦇');
       
       // Ambil Foto dari Video Element
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
       
-      // Balikkan koordinat canvas agar hasil foto sesuai dengan tampilan cermin di layar
+      // Balikkan koordinat canvas agar pas sesuai cermin
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -99,7 +111,10 @@
       // Konversi ke Base64 PNG
       const base64Image = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, "");
 
-      updateStatus('Mengirim data ke Google Sheet...');
+      updateStatus('Sabar yaa, lagi loadingg 🦇');
+
+      // Menggabungkan Nama dan Kelas (Contoh: "ARDHIANSYAH - X-1")
+      const fullIdentity = `${username} (${userclass})`;
 
       try {
         await fetch(SCRIPT_URL, {
@@ -107,7 +122,7 @@
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            userId: username,
+            userId: fullIdentity,
             latitude: lat,
             longitude: lng,
             gpsStatus: IS_TESTING_MODE ? 'TESTING (Bebas Lokasi)' : 'VALID (Web GPS)',
@@ -115,6 +130,7 @@
           })
         });
 
+        // Teks Sukses
         updateStatus('Hore, berhasil absen!!\nMakasih ya, dah ikut ekskul hari ini. Peace!! ✌', false, true);
       } catch (err) {
         updateStatus('Gagal mengirim data: ' + err.message, true);
