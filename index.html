@@ -58,18 +58,18 @@
   // URL Web App Google Apps Script
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHaqldRMQHCY8iThFxkaAmKup_BQdBkc4T_18AsTFFWBpURkFJCrJ6n2Q1oK0QHKfj/exec';
 
-  // Titik Polygon Akurat Titik A - J SMAN 1 Purwokerto
+  // Titik Polygon Akurat Titik A - J SMAN 1 Purwokerto [Latitude, Longitude]
   const SMANSA_POLYGON = [
-    [-7.421550245000005, 109.23753230977674], // Titik A
-    [-7.4213150890326665, 109.23657922191798], // Titik B
-    [-7.419960445921773, 109.23725067634768], // Titik C
-    [-7.419861930441279, 109.23751025252216], // Titik D
-    [-7.420105741690976, 109.23761780746739], // Titik E
-    [-7.420017533328205, 109.23784592884385], // Titik F
+    [-7.421550245000005, 109.23753230977674], // Titik A (Selatan / Gerbang)
+    [-7.4213150890326665, 109.23657922191798], // Titik B (Barat Daya)
+    [-7.419960445921773, 109.23725067634768],  // Titik C (Barat Laut / Belakang)
+    [-7.419861930441279, 109.23751025252216],  // Titik D (Utara)
+    [-7.420105741690976, 109.23761780746739],  // Titik E
+    [-7.420017533328205, 109.23784592884385],  // Titik F (Timur Laut)
     [-7.4203327562666646, 109.23794280078364], // Titik G
-    [-7.420340538155128, 109.23767273844723], // Titik H
-    [-7.420654743143021, 109.23773299827364], // Titik I
-    [-7.421550245000005, 109.23753230977674]  // Titik J (Kembali ke A)
+    [-7.420340538155128, 109.23767273844723],  // Titik H
+    [-7.420654743143021, 109.23773299827364],  // Titik I (Timur)
+    [-7.421550245000005, 109.23753230977674]   // Titik J (Kembali ke A)
   ];
 
   const video = document.getElementById('video');
@@ -82,18 +82,30 @@
     .then(stream => { video.srcObject = stream; status.innerText = 'Kamera & lokasi siap.'; })
     .catch(err => { updateStatus('Gagal mengakses kamera: ' + err.message, true); });
 
-  // Algoritma Ray-Casting untuk mengecek apakah titik (lat, lng) ada di dalam Polygon
-  function isPointInPolygon(latitude, longitude, polygon) {
+  // Pengecekan Presisi Ray-Casting Algorithm (Latitude = X, Longitude = Y)
+  function isPointInPolygon(lat, lng, polygon) {
     let inside = false;
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
       const xi = polygon[i][0], yi = polygon[i][1];
       const xj = polygon[j][0], yj = polygon[j][1];
       
-      const intersect = ((yi > longitude) !== (yj > longitude)) &&
-          (latitude < (xj - xi) * (longitude - yi) / (yj - yi) + xi);
+      const intersect = ((yi > lng) !== (yj > lng)) &&
+          (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
       if (intersect) inside = !inside;
     }
     return inside;
+  }
+
+  // Backup Geofence Haversine (Pusat Sekolah) untuk toleransi sinyal GPS HP indoor
+  function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371e3;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
   }
 
   function updateStatus(msg, isError = false, isSuccess = false) {
@@ -109,7 +121,7 @@
     if (!userclass) { alert('Isi Kelas dulu!'); return; }
 
     btn.disabled = true;
-    updateStatus('Sabar yaa, lagi loadingg 🦇');
+    updateStatus('Sabar yaa, lagi loadingg Batis');
 
     if (!navigator.geolocation) {
       updateStatus('Browser kamu tidak mendukung Geolocation.', true);
@@ -121,11 +133,14 @@
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
 
-      // Cek apakah koordinat HP pengguna berada di DALAM area polygon Smansa
-      const isInsideSmansa = isPointInPolygon(lat, lng, SMANSA_POLYGON);
+      // 1. Cek Polygon Batas A-J
+      const insidePolygon = isPointInPolygon(lat, lng, SMANSA_POLYGON);
+      
+      // 2. Cek Jarak Pusat Smansa (Toleransi 110 meter jika GPS HP sedikit melenceng)
+      const distanceCenter = getDistance(lat, lng, -7.4208, 109.2372);
 
-      if (!isInsideSmansa) {
-        updateStatus('Kamu berada di luar area kompleks SMA N 1 Purwokerto! Silakan masuk ke dalam area sekolah untuk absen.', true);
+      if (!insidePolygon && distanceCenter > 110.0) {
+        updateStatus(`Kamu berada di luar area kompleks SMA N 1 Purwokerto! Silakan masuk ke dalam area sekolah untuk absen.`, true);
         btn.disabled = false;
         return;
       }
