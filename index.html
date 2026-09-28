@@ -13,12 +13,10 @@
     label { font-size: 14px; font-weight: 600; color: #555; display: block; margin-bottom: 6px; }
     input[type="text"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; outline: none; }
     
-    /* Otomatis teks nama jadi kapital semua */
     #username { text-transform: uppercase; }
 
     .camera-box { width: 100%; height: 240px; background: #222; border-radius: 12px; overflow: hidden; position: relative; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; }
     
-    /* Efek Mirror Kamera Depan Natural */
     video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
     canvas { width: 100%; height: 100%; object-fit: cover; }
     
@@ -55,33 +53,34 @@
 </div>
 
 <script>
-  // URL Web App Google Apps Script
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHaqldRMQHCY8iThFxkaAmKup_BQdBkc4T_18AsTFFWBpURkFJCrJ6n2Q1oK0QHKfj/exec';
 
-  // Titik Pusat SMAN 1 Purwokerto & Radius Toleransi 50 Meter
   const TARGET_LAT = -7.420934568290806;
   const TARGET_LONG = 109.23722062789159;
-  const MAX_RADIUS = 50.0; 
+  
+  // Radius dinaikkan jadi 500m untuk batas toleransi GPS HP di indoor
+  const MAX_RADIUS = 500.0; 
 
   const video = document.getElementById('video');
   const canvas = document.getElementById('canvas');
   const status = document.getElementById('status');
   const btn = document.getElementById('btnAbsen');
 
-  // Akses Kamera Depan HP / Laptop
   navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
     .then(stream => { video.srcObject = stream; status.innerText = 'Kamera & lokasi siap.'; })
     .catch(err => { updateStatus('Gagal mengakses kamera: ' + err.message, true); });
 
-  // Hitung Jarak Koordinat (Formula Haversine)
-  function getDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Radius bumi dalam meter
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  function getDistanceInMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const rad = Math.PI / 180;
+    const dLat = (lat2 - lat1) * rad;
+    const dLon = (lon2 - lon1) * rad;
+    
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+              
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
 
@@ -106,14 +105,18 @@
       return;
     }
 
+    const geoOptions = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    };
+
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
 
-      // Hitung Jarak dari Titik Target
-      const distance = getDistance(lat, lng, TARGET_LAT, TARGET_LONG);
+      const distance = getDistanceInMeters(lat, lng, TARGET_LAT, TARGET_LONG);
 
-      // Cek Radius 50m
       if (distance > MAX_RADIUS) {
         updateStatus(`Posisi kamu di luar SMA N 1 Purwokerto (${distance.toFixed(1)}m). Maksimal ${MAX_RADIUS}m dari lokasi ekskul.`, true);
         btn.disabled = false;
@@ -122,17 +125,14 @@
 
       updateStatus('Sabar yaa, lagi loadingg 🦇');
       
-      // Ambil Foto dari Video Element
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
       
-      // Balikkan koordinat canvas agar pas sesuai cermin
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       
-      // Konversi ke Base64 PNG
       const base64Image = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, "");
 
       updateStatus('Sabar yaa, lagi loadingg 🦇');
@@ -152,7 +152,6 @@
           })
         });
 
-        // Teks Sukses
         updateStatus('Hore, berhasil absen!!\nMakasih ya, dah ikut ekskul hari ini. Peace!! ✌', false, true);
       } catch (err) {
         updateStatus('Gagal mengirim data: ' + err.message, true);
@@ -163,7 +162,7 @@
     }, (err) => {
       updateStatus('Gagal mendapatkan lokasi GPS: ' + err.message, true);
       btn.disabled = false;
-    }, { enableHighAccuracy: true });
+    }, geoOptions);
   }
 </script>
 
