@@ -57,8 +57,6 @@
 
   const TARGET_LAT = -7.420934568290806;
   const TARGET_LONG = 109.23722062789159;
-  
-  // Radius dinaikkan jadi 500m untuk batas toleransi GPS HP di indoor
   const MAX_RADIUS = 500.0; 
 
   const video = document.getElementById('video');
@@ -137,14 +135,16 @@
 
       updateStatus('Sabar yaa, lagi loadingg 🦇');
 
+      // Menggabungkan Nama & Kelas agar pas dikirim ke Apps Script lama
+      const namaDanKelas = `${username} (${userclass})`;
+
       try {
         await fetch(SCRIPT_URL, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            nama: username,
-            kelas: userclass,
+            userId: namaDanKelas,
             latitude: lat,
             longitude: lng,
             gpsStatus: 'VALID (SMAN 1 Purwokerto)',
@@ -152,7 +152,7 @@
           })
         });
 
-        updateStatus('Hore, berhasil absen!!\nMakasih ya, dah ikut ekskul hari ini. Peace!! ✌', false, true);
+        updateStatus('Hore, berhasil absen!!\nMakasih ya, dah ikut ekskul hari ini. Pissss ✌', false, true);
       } catch (err) {
         updateStatus('Gagal mengirim data: ' + err.message, true);
       } finally {
