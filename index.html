@@ -58,7 +58,6 @@
   const TARGET_LAT = -7.420934568290806;
   const TARGET_LONG = 109.23722062789159;
   
-  // Radius diset ke 300 meter
   const MAX_RADIUS = 300.0; 
 
   const video = document.getElementById('video');
@@ -118,7 +117,7 @@
       const distance = getDistanceInMeters(lat, lng, TARGET_LAT, TARGET_LONG);
 
       if (distance > MAX_RADIUS) {
-        updateStatus(`Posisi kamu di luar SMA N 1 Purwokerto (${distance.toFixed(1)}m). Maksimal ${MAX_RADIUS}m dari lokasi ekskul.`, true);
+        updateStatus(`Posisi kamu di luar SMA N 1 Purwokerto (${distance.toFixed(1)}m).`, true);
         btn.disabled = false;
         return;
       }
