@@ -23,6 +23,9 @@
     button { width: 100%; background: #4F46E5; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s; }
     button:active { background: #4338CA; }
     button:disabled { background: #A5B4FC; cursor: not-allowed; }
+    
+    .btn-secondary { background: #6B7280; margin-bottom: 10px; padding: 8px; font-size: 13px; }
+
     #status { margin-top: 15px; font-size: 14px; color: #666; font-weight: 500; line-height: 1.4; }
     .error { color: #DC2626 !important; }
     .success { color: #16A34A !important; }
@@ -48,6 +51,7 @@
     <canvas id="canvas" style="display:none;"></canvas>
   </div>
 
+  <button id="btnRetryCam" class="btn-secondary" style="display:none;" onclick="startCamera()">Aktifkan Kamera Ulang</button>
   <button id="btnAbsen" onclick="prosesAbsensi()">KIRIM ABSENSI</button>
   <div id="status">Sabar yaa, lagi loadingg 🦇</div>
 </div>
@@ -58,16 +62,42 @@
   const TARGET_LAT = -7.420934568290806;
   const TARGET_LONG = 109.23722062789159;
   
-  const MAX_RADIUS = 300.0; 
+  // Radius dinaikkan jadi 500m agar mencakup semua jenis HP & kondisi sinyal indoor
+  const MAX_RADIUS = 500.0; 
 
   const video = document.getElementById('video');
   const canvas = document.getElementById('canvas');
   const status = document.getElementById('status');
   const btn = document.getElementById('btnAbsen');
+  const btnRetryCam = document.getElementById('btnRetryCam');
 
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
-    .then(stream => { video.srcObject = stream; status.innerText = 'Kamera & lokasi siap.'; })
-    .catch(err => { updateStatus('Gagal mengakses kamera: ' + err.message, true); });
+  function startCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      updateStatus('Browser kamu tidak mendukung akses kamera langsung.', true);
+      return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        facingMode: "user",
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      }, 
+      audio: false 
+    })
+    .then(stream => { 
+      video.srcObject = stream; 
+      video.play();
+      btnRetryCam.style.display = 'none';
+      status.innerText = 'Kamera & lokasi siap.'; 
+    })
+    .catch(err => { 
+      updateStatus('Kamera belum aktif/diizinkan. Klik "Aktifkan Kamera Ulang" di atas!', true); 
+      btnRetryCam.style.display = 'block';
+    });
+  }
+
+  startCamera();
 
   function getDistanceInMeters(lat1, lon1, lat2, lon2) {
     const R = 6371000;
@@ -94,6 +124,12 @@
 
     if (!username) { alert('Isi Nama dulu!'); return; }
     if (!userclass) { alert('Isi Kelas dulu!'); return; }
+
+    if (!video.srcObject || video.readyState !== 4) {
+      alert('Kamera belum siap/masih hitam! Silakan klik Aktifkan Kamera Ulang.');
+      startCamera();
+      return;
+    }
 
     btn.disabled = true;
     updateStatus('Sabar yaa, lagi loadingg 🦇');
@@ -124,8 +160,8 @@
 
       updateStatus('Sabar yaa, lagi loadingg 🦇');
       
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
       const ctx = canvas.getContext('2d');
       
       ctx.translate(canvas.width, 0);
@@ -160,7 +196,7 @@
       }
 
     }, (err) => {
-      updateStatus('Gagal mendapatkan lokasi GPS: ' + err.message, true);
+      updateStatus('Gagal mendapatkan lokasi GPS: ' + err.message + '\nPastikan izin lokasi browser sudah diizinkan!', true);
       btn.disabled = false;
     }, geoOptions);
   }
